@@ -29,11 +29,17 @@
            (cdr kv)))
 
  (hash->list arrivals))
+;;hash->list is a builti-in function that converts a hash to
+;;a list of pairs (key-value pairs, (key.value)), in an arbitrary
+;;order. You can sort by key: (hash->list my-hash #:try-order? #t)
+;;in Racket #: denotes a keyword to pass optional or named args
+;;to functions. 
 
 ;; ------------------------------------------------------------
 ;; SAT Encoding
 ;; ------------------------------------------------------------
 
+;; desired maximum delay bound
 (define Tmax 5)
 
 (displayln "")
@@ -55,6 +61,7 @@
 (printf "Clauses:   ~a~n"
         (length clauses))
 
+(dump-sat-vars)
 ;; ------------------------------------------------------------
 ;; Write DIMACS
 ;; ------------------------------------------------------------

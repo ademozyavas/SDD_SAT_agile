@@ -7,7 +7,7 @@
 
 (struct gate-node (name
                    gate-type
-                   fanins
+                   fanins ;;actual fanin
                    delay)
   #:transparent)
 
@@ -16,7 +16,7 @@
   #:transparent)
 
 (struct circuit (inputs
-                 gates
+                 gates ;;gates is a topologically sorted list of gates
                  outputs)
   #:transparent)
 
@@ -46,7 +46,7 @@
     (input-node 'c)
     (input-node 'd))
 
-   (list
+   (list   ;;(gate-node name gate-type fanins delay)
     (gate-node 'n1 'and '(a b) 1)
     (gate-node 'n2 'nand '(c d) 1)
     (gate-node 'n3 'or '(n1 n2) 1)

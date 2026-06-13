@@ -9,7 +9,8 @@
 ;; ------------------------------------------------------------
 
 (define (v node time)
-  (allocate-var!
+  (allocate-var!  ;;returns an ID (new or already existing)
+                  ;; for (node,time) pair
    (sat-var node time)))
 
 ;; ------------------------------------------------------------
@@ -17,7 +18,7 @@
 ;; ------------------------------------------------------------
 
 (define (implies a b)
-  (list (- a) b))
+  (list (- a) b)) ;;not(A) or B
 
 ;; ------------------------------------------------------------
 ;; Generate SAT encoding
@@ -27,18 +28,25 @@
 
 (define (generate-sat-instance ckt Tmax)
 
-  (reset-vars!)
+  (reset-vars!) ;;counter to 0, empty both hashes (var->id, id->var)
 
   (define clauses '())
 
   ;; --------------------------------------------------------
   ;; Input signals exist at time 0
   ;; --------------------------------------------------------
-
+  ;;(for-each function list1 list2 ...) return <void>
+  ;; SAT variables are forced to be TRUE at time 0.
+  ;; suppose ID is 1 for a, then there is a unit clause for a
+  ;; at time 0 (always true) which is "1 0" which means
+  ;; variable a is true.
+  ;; Suppose n1 = AND(a,b).then you may have X_a_0 = var 1
+  ;; X_b_0 = var 2, X_n1_1 = var 3. Input clauses
+  ;; "1 0" and "2 0". Propagation clauses: -1 
   (for-each
    (lambda (i)
 
-     (define var
+     (define var  ;; var is bound to a number for SAT
        (v (input-node-name i) 0))
 
      ;; unit clause
@@ -46,7 +54,7 @@
            (cons (list var)
                  clauses)))
 
-   (circuit-inputs ckt))
+   (circuit-inputs ckt)) ;;inputs (input-node 'a),b,c,and d 
 
   ;; --------------------------------------------------------
   ;; Propagation constraints
@@ -81,6 +89,6 @@
 
    (circuit-gates ckt))
 
-  clauses)
+  clauses) ;;return a list of CNF clauses
 
 (provide generate-sat-instance)
