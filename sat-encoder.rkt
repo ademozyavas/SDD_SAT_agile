@@ -1,94 +1,83 @@
 #lang racket
 
 (require "sat-vars.rkt"
-         "circuit.rkt")
-
-;; ------------------------------------------------------------
-;; Helper:
-;; create SAT variable for (node,time)
-;; ------------------------------------------------------------
-
-(define (v node time)
-  (allocate-var!  ;;returns an ID (new or already existing)
-                  ;; for (node,time) pair
-   (sat-var node time)))
+         "circuit.rkt"
+         "universe.rkt"
+         "reachability.rkt"
+         "cnf-gates.rkt")
 
 ;; ------------------------------------------------------------
 ;; CNF clause helpers
 ;; ------------------------------------------------------------
 
-(define (implies a b)
-  (list (- a) b)) ;;not(A) or B
+;;(define (implies a b)
+;;  (list (- a) b)) ;;not(A) or B
 
 ;; ------------------------------------------------------------
 ;; Generate SAT encoding
 ;;
 ;; X_pred_t => X_gate_(t+d)
 ;; ------------------------------------------------------------
+;; do we have any logical constraints on the input value (genrally no)
+;; for ATPG, the SAT solver is supposed to choose:
+;; a = 0 or 1
+;; b = 0 or 1
+;; freely, therefore, (v 'value 'a 0) often needs no clauses at all.
+;; (generate-sat-instance circuit 5 '(0 1)) where '(0 1) is frames
+;; if you tried to pass a single time (0 or 1), you would lose:
+;;
+;; -> launch/capture distinction
+;; -> flexibility for multi-cycle ATPG later
+;; -> ability to extend to transition faults cleanly
+;; For pure logical functionality (Increment 2 gate semantics),
+;; Tmax is not inherently needed.
+;; Gate semantics are purely:
+;; value(out, t + delay) ↔ f(value(inputs, t))
+;; The CNF for a gate needs only needs (1) node identities,
+;; (2) fanins, (3) delay, and (4) chosen time frame t
+;; Tmax ONLY belongs to Reachability/timing unrolling (increment 1)
+;; Gate semantics needs circuit and frame (t), no Tmax.
+;; Reachability used Tmax and needs circuit, no frame concept needed
+;; (generate-sat-instance circuit Tmax frames) combines both
 
-(define (generate-sat-instance ckt Tmax)
+(define (generate-sat-instance circuit Tmax)
 
-  (reset-vars!) ;;counter to 0, empty both hashes (var->id, id->var)
+  (build-sat-universe
+   circuit
+   Tmax
+   '(0 1))
 
-  (define clauses '())
+  (append
 
-  ;; --------------------------------------------------------
-  ;; Input signals exist at time 0
-  ;; --------------------------------------------------------
-  ;;(for-each function list1 list2 ...) return <void>
-  ;; SAT variables are forced to be TRUE at time 0.
-  ;; suppose ID is 1 for a, then there is a unit clause for a
-  ;; at time 0 (always true) which is "1 0" which means
-  ;; variable a is true.
-  ;; Suppose n1 = AND(a,b).then you may have X_a_0 = var 1
-  ;; X_b_0 = var 2, X_n1_1 = var 3. Input clauses
-  ;; "1 0" and "2 0". Propagation clauses: -1 
-  (for-each
-   (lambda (i)
+   (generate-reachability-clauses
+    circuit
+    Tmax)
 
-     (define var  ;; var is bound to a number for SAT
-       (v (input-node-name i) 0))
+   (generate-gate-semantics-clauses
+    circuit
+    '(0 1))))
 
-     ;; unit clause
-     (set! clauses
-           (cons (list var)
-                 clauses)))
 
-   (circuit-inputs ckt)) ;;inputs (input-node 'a),b,c,and d 
+;;your Increment 1 reachability times and the future ATPG time frames
+;;are not necessarily the same thing (time in the following function)
+;;for example (reach-var-id 'n1 7) might mean "signal propagatio at
+;; depth 7" while (value-var-id 'n1 0) might mean "launch time frame".
+;; while (value-var-id 'n1 1) might mean "capture time frame".
+;; so 'reach time index and 'value time index represent different concepts.
+;;Tmax was used only to prevent:
+;; -> generating variables outside the model
+;; -> exploding SAT variable space
+;; ->inconsistent unrolling
+;; There are two importnat questions:
+;; (1) Is this gate encoding correct (independent of Tmax)
+;; (2) Should I create this SAT variable at all (depends on Tmax)
 
-  ;; --------------------------------------------------------
-  ;; Propagation constraints
-  ;; --------------------------------------------------------
 
-  (for-each
-   (lambda (g)
 
-     (define gname (gate-node-name g))
-     (define delay (gate-node-delay g))
 
-     (for-each
-      (lambda (fanin)
 
-        ;; time-unrolling
-        (for ([t (in-range 0 (+ 1 Tmax))])
 
-          (define next-time (+ t delay))
 
-          (when (<= next-time Tmax)
 
-            (define a (v fanin t))
-            (define b (v gname next-time))
-
-            ;; X_fanin_t => X_gate_(t+d)
-            (set! clauses
-                  (cons
-                   (implies a b)
-                   clauses)))))
-
-      (gate-node-fanins g)))
-
-   (circuit-gates ckt))
-
-  clauses) ;;return a list of CNF clauses
 
 (provide generate-sat-instance)

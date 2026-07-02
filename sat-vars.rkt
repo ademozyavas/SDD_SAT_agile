@@ -1,5 +1,6 @@
 #lang racket
 
+
 ;;represents a single Boolean SAT proposition related to timing
 ;;it encodes: "signal can be present at "node" at "time".
 ;;for example: (sat-var 'n3 2) means signal reaches at node n3 at time 2
@@ -8,24 +9,23 @@
 ;;(sat-var 'n3 2) is the logical proposition X_n3_2 which can be TRUE
 ;;reachable at time 2, FALSE not reachable at time 2.
 ;; (sat-var 'n3 2) may be mapped to a ID (integer) for SAT 
-(struct sat-var (node time)
-  #:transparent)
+;(struct sat-var (node time)
+;  #:transparent)
+;;(struct sat-var (kind node time) #:transparent)
+(struct sat-var (kind node time) #:transparent)
+;;the field named time will simply mean:
+;; a. reach variables -> propagation time/depth
+;; b. value variables -> frame number
 
-(define next-id 0)
+;;(define PHASE-REACH 'reach-phase) ;;depth(0..Tmax)
+;;(define PHASE-VALUE 'value-phase) ;;frame(0/1/launch/capture)
 
-(define var->id (make-hash)) ;;creates a mutable hash table
+(define var->id (make-hash))
 (define id->var (make-hash))
+(define next-id 1)
 
-;;start new fresh SAT encoding with no earlier variables/mappings
-;;set counter back to 0 and clear the hashes
-(define (reset-vars!)
-  (set! next-id 0)
-  (set! var->id (make-hash))
-  (set! id->var (make-hash)))
-
-;;assign a unique SAT integer ID to a (node,time) pair
+;;assign a unique SAT integer ID to a (kind,node,time) triple
 ;;return value ID is used in CNF clauses
-;; v is a (node,time) pair
 (define (allocate-var! v)
   (cond
     [(hash-has-key? var->id v) ;;if SAT var has already an ID, return it
@@ -37,10 +37,37 @@
     [else
      (set! next-id (+ next-id 1));;otherwise create a new ID
 
-     (hash-set! var->id v next-id) ;;store (sat-var node time)->int ID
-     (hash-set! id->var next-id v) ;;store (int ID)->(sat-var node time)
+     (hash-set! var->id v next-id) ;;store (sat-var kind node time)->int ID
+     (hash-set! id->var next-id v) ;;store (int ID)->(sat-var kind node time)
 
      next-id]))
+
+(define (v kind node time)
+  (allocate-var!
+   (sat-var kind node time)))
+
+;; t ranges over 0...Tmax
+(define (reach-var-id node t)
+  (v 'reach node t))
+
+;; t ranges over {0,1}, that is, frames
+(define (value-var-id node t)
+  (v 'value node t)) 
+
+;;start new fresh SAT encoding with no earlier variables/mappings
+;;set counter back to 0 and clear the hashes
+(define (reset-vars!)
+  (set! next-id 0) ;; 0 or 1
+  (set! var->id (make-hash))
+  (set! id->var (make-hash)))
+
+;;reach(a,0) means "a signal can arrive at a at time 0"
+;;value(a,0) means "the logic value of a at time 0 is 1"
+;; reach(node, t)  -> t: arrival depth which grows along the circuit
+;; “Can a signal arrive at this node after t propagation steps?”
+;; reach(node, t)  -> typically t is either 0(launch) or 1 (capture)
+;; “What is the logic value of this node in time frame t?”
+
 
 (define (lookup-var id)  ;;returns the value associated with that key
   (hash-ref id->var id)) ;; if key is missing, it will throw an error
@@ -67,15 +94,16 @@
 
   (for ([id (sort (hash-keys id->var) <)])
     (match (hash-ref id->var id)
-      [(sat-var node time)
-       (printf "~a : (~a, ~a)\n"
+      [(sat-var 'reach node time)
+       (printf "~a : (~a, ~a, ~a)\n"
                id
+               'reach
                node
                time)]
       [other
-       (printf "~4a : ~a\n"
-               id
-               other)]))
+       (printf "~a : ~a\n"
+        (~a id #:width 4 #:align 'right)
+        other)]))
 
   (printf "========================================\n\n"))
 
@@ -85,4 +113,6 @@
  lookup-var
  lookup-id
  reset-vars!
+ value-var-id
+ reach-var-id
  dump-sat-vars)

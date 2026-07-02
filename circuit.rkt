@@ -55,7 +55,6 @@
    (list
     (output-node 'OUT 'out))))
 
-
 (provide
  ;;Export all bindings related to the struct input-node
  (struct-out input-node)
