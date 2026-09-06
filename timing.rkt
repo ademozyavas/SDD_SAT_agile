@@ -255,8 +255,55 @@
    (hash-keys arrival-times))
 
   timing)
+;; ------------------------------------------------------------
+;; Compute slack
+;; ------------------------------------------------------------
+;;
+;; Slack(n) = Required Time(n) - Arrival Time(n)
+;;
+;; Positive slack:
+;;   Node has timing margin.
+;;
+;; Zero slack:
+;;   Node is exactly on the timing boundary.
+;;
+;; Negative slack:
+;;   Node violates the timing requirement.
+;;
+;; ------------------------------------------------------------
+
+(define (compute-slack ckt capture-time)
+
+  (define timing
+    (compute-timing-table ckt capture-time))
+
+  (define slack-times
+    (make-hash))
+
+  (for-each
+   (lambda (name)
+
+     (define node-timing
+       (hash-ref timing name))
+
+     (define arrival
+       (hash-ref node-timing 'arrival))
+
+     (define required
+       (hash-ref node-timing 'required))
+
+     (hash-set!
+      slack-times
+      name
+      (- required arrival)))
+
+   (hash-keys timing))
+
+  slack-times)
+
 (provide
  build-node-table
  compute-arrival-times
  compute-required-times
- compute-timing-table)
+ compute-timing-table
+ compute-slack)

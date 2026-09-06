@@ -44,6 +44,18 @@
 
  (hash->list rt))
 
+(define timing
+  (compute-timing-table sample-c17 4))
+(define slack
+  (compute-slack sample-c17 4))
+(displayln "timing of node n3")
+(hash-ref timing 'n3)
+(displayln "n3 arrival time")
+(hash-ref (hash-ref timing 'n3) 'arrival)
+(displayln "n3 required time")
+(hash-ref (hash-ref timing 'n3) 'required)
+(displayln "slack of n3")
+(hash-ref slack 'n3)
 ;; ------------------------------------------------------------
 ;; SAT Encoding
 ;; ------------------------------------------------------------
