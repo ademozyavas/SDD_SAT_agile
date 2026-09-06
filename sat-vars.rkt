@@ -75,37 +75,35 @@
 (define (lookup-id v)
   (hash-ref var->id v))
 
-;;(define (dump-sat-vars)
-;;  (for ([id (sort (hash-keys id->var) <)])
-    ;;(define v (hash-ref id->var id))
-    ;;(printf "~a -> ~a\n" id v)))
-    ;;(displayln id)))
-;;    (display id)
-;;    (display " -> ")
-;;    (displayln (hash-ref id->var id))))
-
-
+;;we have encoded Boolean gate semantics, two time frames
+;;(0 for launch, 1 for capture), SAT variables representing
+;;signal values. You have NOT yet encoded: fault activation,
+;;fault propagation, primary output observation, SDD constraints.
+;; Your SAT instance currently represents:
+;; "All assignments that satisfy the circuit's logic"
 (define (dump-sat-vars)
-  (printf "\n========================================\n")
+   (printf "\n========================================\n")
   (printf "SAT VARIABLE TABLE\n")
   (printf "========================================\n")
   (printf "Total SAT variables: ~a\n\n"
           (hash-count id->var))
-
   (for ([id (sort (hash-keys id->var) <)])
     (match (hash-ref id->var id)
-      [(sat-var 'reach node time)
+      ;;we match any sat-var (today 'reach and 'value
+      ;;tomorrow 'fault 'activation 'observe. we do not
+      ;;have to modify dump-sat-vars every time we add
+      ;;a new SAT variable kind
+      [(sat-var kind node time)
        (printf "~a : (~a, ~a, ~a)\n"
                id
-               'reach
+               kind
                node
                time)]
-      [other
-       (printf "~a : ~a\n"
-        (~a id #:width 4 #:align 'right)
-        other)]))
 
-  (printf "========================================\n\n"))
+      [other
+       (printf "~a : UNKNOWN ~v\n"
+               id
+               other)])))
 
 (provide
  struct-out sat-var

@@ -51,7 +51,7 @@
 ;; ------------------------------------------------------------
 ;; Count variables
 ;; ------------------------------------------------------------
-
+;; DIMAC file's first line reports the number of variables
 (define num-vars
   (apply max
          (map abs
