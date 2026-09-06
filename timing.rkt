@@ -5,71 +5,78 @@
 ;; ------------------------------------------------------------
 ;; Build hash: node-name -> node-struct
 ;; ------------------------------------------------------------
-;; hash table from "node-names to node structs"
-;; (1)input node, (2) gate node, and (3) output node.
-;; So, we can get full node definition later (hash-ref table 'n3)
-(define (build-node-table ckt)
-  (define h (make-hash)) ;;new mutable empty hash
 
-  ;; inputs. (for-each used for side effects)
-  ;;(for-each function list1 list2 ...) return <void>
+(define (build-node-table ckt)
+  (define h (make-hash))
+
+  ;; Inputs
   (for-each
    (lambda (i)
      (hash-set! h
                 (input-node-name i)
                 i))
-   (circuit-inputs ckt));;circuit-inputs gives you a list of input-node
-                        ;; structs
+   (circuit-inputs ckt))
 
-  ;; gates (do the same for gate nodes), for each gate-node name
-  (for-each    ;; add a key.value (name.get-node-struct) pair
+  ;; Gates
+  (for-each
    (lambda (g)
      (hash-set! h
                 (gate-node-name g)
                 g))
    (circuit-gates ckt))
 
-  h) ;;return value is h (hash from node-name to node struct)
-     ;;no pair in the hash for output?
+  h)
+
 
 ;; ------------------------------------------------------------
-;; Recursive arrival time computation
+;; Compute arrival times
 ;; ------------------------------------------------------------
-;; ckt is the (circuit) value created from the circuit struct.
+;;
+;; Primary inputs have arrival time 0.
+;;
+;; For a gate:
+;;
+;;   AT(g) = max(AT(fanin)) + delay(g)
+;;
+;; Returns:
+;;
+;;   node-name -> arrival-time
+;;
+;; ------------------------------------------------------------
+
 (define (compute-arrival-times ckt)
-  ;;hash from node-name to node struct
-  (define table (build-node-table ckt))
-  ;;empty memo hash (node, arrival-time) pairs
-  (define memo (make-hash)) ;;new mutable empty hash
+
+  (define table
+    (build-node-table ckt))
+
+  (define memo
+    (make-hash))
 
   (define (arrival name)
 
-    (cond ;;if key exists, return its (name's) value
+    (cond
       [(hash-has-key? memo name)
-       (hash-ref memo name)] 
+       (hash-ref memo name)]
 
       [else
 
-       (define node (hash-ref table name));;"node" is struct node
+       (define node
+         (hash-ref table name))
 
-       (define result  ;;if and cond are expressions that return a value
+       (define result
          (cond
 
-           ;; input arrival = 0, input nodes has arrival time 0
+           ;; Primary input
            [(input-node? node)
             0]
 
-           ;; gate arrival. Add (+) the max(latest) arrival time of the
-           ;; fanins and the nominal delay of the gate
+           ;; Gate
            [(gate-node? node)
-            (+
-             (apply
-              max ;;map retuns a list of arrival times but max expects
-              ;;separate values. (apply max '(1 2 3)) = (map 1 2 3)
-              (map arrival  ;; fanins is a list of inputs to gate
-                   (gate-node-fanins node)))
-
-             (gate-node-delay node))]
+            (+ (apply
+                max
+                (map arrival
+                     (gate-node-fanins node)))
+               (gate-node-delay node))]
 
            [else
             (error "Unknown node")]))
@@ -78,19 +85,178 @@
 
        result]))
 
-  ;; return all gate arrival times. for/hash is a comprehensive loop
-  ;; that builds and returns an immutable hash from the elements of a list
-  ;; each iteration should return a key-value pair collected in the hash
-  ;; key=gate name, value=arrival time
-  ;; for/hash requires exactly two separate values at the end of each
-  ;; iteration. The first value is used as the key, and the second
-  ;; value is used as the value. Immediately inserts them into the table.
-  (for/hash ([g (circuit-gates ckt)])
-    (values    ;;returns multiple distinct values from a function/expression
-     (gate-node-name g)
-     (arrival (gate-node-name g)))))
+  ;; ----------------------------------------------------------
+  ;; Include BOTH primary inputs and gates.
+  ;; ----------------------------------------------------------
 
+  (define result
+    (make-hash))
 
+  ;; Primary inputs
+  (for-each
+   (lambda (i)
+     (hash-set!
+      result
+      (input-node-name i)
+      (arrival (input-node-name i))))
+   (circuit-inputs ckt))
+
+  ;; Gates
+  (for-each
+   (lambda (g)
+     (hash-set!
+      result
+      (gate-node-name g)
+      (arrival (gate-node-name g))))
+   (circuit-gates ckt))
+
+  result)
+;; ------------------------------------------------------------
+;; Compute required times
+;; ------------------------------------------------------------
+;;
+;; capture-time:
+;;   Latest acceptable arrival time at the primary outputs.
+;;
+;; For a primary output:
+;;
+;;   RT(output) = capture-time
+;;
+;; For a gate:
+;;
+;;   RT(fanin) = RT(gate) - delay(gate)
+;;
+;; If a node feeds multiple gates, the minimum required time
+;; is selected.
+;;
+;; ------------------------------------------------------------
+
+;; ------------------------------------------------------------
+;; Compute required times
+;; ------------------------------------------------------------
+;;
+;; capture-time:
+;;   Latest acceptable arrival time at the primary outputs.
+;;
+;; For a primary output:
+;;
+;;   RT(output) = capture-time
+;;
+;; For a gate:
+;;
+;;   RT(fanin) = RT(gate) - delay(gate)
+;;
+;; If a node feeds multiple gates, the minimum required time
+;; is selected.
+;;
+;; ------------------------------------------------------------
+
+(define (compute-required-times ckt capture-time)
+
+  (define table
+    (build-node-table ckt))
+
+  (define required
+    (make-hash))
+
+  ;; ----------------------------------------------------------
+  ;; Initialize primary output source nodes.
+  ;; ----------------------------------------------------------
+
+  (for-each
+   (lambda (o)
+
+     (define source
+       (output-node-source o))
+
+     (hash-set!
+      required
+      source
+      capture-time))
+
+   (circuit-outputs ckt))
+
+  ;; ----------------------------------------------------------
+  ;; Propagate required times backward.
+  ;; ----------------------------------------------------------
+
+  (for-each
+   (lambda (gate)
+
+     (define gate-name
+       (gate-node-name gate))
+
+     ;; A gate should already have a required time from
+     ;; a downstream gate. If it does not, something is
+     ;; structurally wrong with the circuit.
+     (unless (hash-has-key? required gate-name)
+       (error
+        "No required time available for gate ~a"
+        gate-name))
+
+     (define gate-required
+       (hash-ref required gate-name))
+
+     (define fanin-required
+       (- gate-required
+          (gate-node-delay gate)))
+
+     ;; Propagate the requirement to every fanin.
+     (for-each
+      (lambda (fanin)
+
+        (if (hash-has-key? required fanin)
+
+            ;; Multiple fanout gates:
+            ;; choose the most restrictive requirement.
+            (hash-set!
+             required
+             fanin
+             (min
+              (hash-ref required fanin)
+              fanin-required))
+
+            ;; First requirement encountered.
+            (hash-set!
+             required
+             fanin
+             fanin-required)))
+
+      (gate-node-fanins gate)))
+
+   ;; Gates must be processed from outputs toward inputs.
+   (reverse (circuit-gates ckt)))
+
+  required)
+
+(define (compute-timing-table ckt capture-time)
+
+  (define arrival-times
+    (compute-arrival-times ckt))
+
+  (define required-times
+    (compute-required-times ckt capture-time))
+
+  (define timing
+    (make-hash))
+
+  ;; Add all nodes appearing in arrival-times.
+  (for-each
+   (lambda (name)
+     (hash-set!
+      timing
+      name
+      (hash
+       'arrival
+       (hash-ref arrival-times name)
+
+       'required
+       (hash-ref required-times name))))
+   (hash-keys arrival-times))
+
+  timing)
 (provide
  build-node-table
- compute-arrival-times)
+ compute-arrival-times
+ compute-required-times
+ compute-timing-table)

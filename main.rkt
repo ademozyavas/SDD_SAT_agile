@@ -21,6 +21,8 @@
 
 (define arrivals
   (compute-arrival-times ckt))
+(define rt
+  (compute-required-times sample-c17 4))
 
 (for-each
  (lambda (kv)
@@ -33,7 +35,14 @@
 ;;a list of pairs (key-value pairs, (key.value)), in an arbitrary
 ;;order. You can sort by key: (hash->list my-hash #:try-order? #t)
 ;;in Racket #: denotes a keyword to pass optional or named args
-;;to functions. 
+;;to functions.
+(displayln "=== Required Times ===")(for-each
+ (lambda (kv)
+   (printf "~a -> ~a~n"
+           (car kv)
+           (cdr kv)))
+
+ (hash->list rt))
 
 ;; ------------------------------------------------------------
 ;; SAT Encoding
