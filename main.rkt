@@ -5,7 +5,8 @@
  "timing.rkt"
  "sat-vars.rkt"
  "sat-encoder.rkt"
- "dimacs.rkt")
+ "dimacs.rkt"
+ "fault-model.rkt")
 
 ;; ------------------------------------------------------------
 ;; Circuit
@@ -56,6 +57,9 @@
 (hash-ref (hash-ref timing 'n3) 'required)
 (displayln "slack of n3")
 (hash-ref slack 'n3)
+(displayln "n3 is a fault site?")
+(valid-fault-site? sample-c17
+                   (sdd-fault 'n3))
 ;; ------------------------------------------------------------
 ;; SAT Encoding
 ;; ------------------------------------------------------------
