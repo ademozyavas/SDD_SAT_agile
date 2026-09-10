@@ -14,12 +14,17 @@
 ;; Utility
 ;; ------------------------------------------------------------
 
+;;(define (input-reachability-clauses circuit)
+;;
+;;  (for/list ([pi (circuit-inputs circuit)])
+;;
+;;    (list (reach-var-id pi 0))))
 (define (input-reachability-clauses circuit)
-
   (for/list ([pi (circuit-inputs circuit)])
-
-    (list (reach-var-id pi 0))))
-
+    (list
+     (reach-var-id
+      (input-node-name pi)
+      0))))
 
 (define (gate-reachability-clauses gate Tmax)
 

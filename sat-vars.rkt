@@ -22,7 +22,7 @@
 
 (define var->id (make-hash))
 (define id->var (make-hash))
-(define next-id 1)
+(define next-id 0)
 
 ;;assign a unique SAT integer ID to a (kind,node,time) triple
 ;;return value ID is used in CNF clauses
@@ -52,12 +52,19 @@
 
 ;; t ranges over {0,1}, that is, frames
 (define (value-var-id node t)
-  (v 'value node t)) 
+  (v 'value node t))
+
+;;
+(define (transition-var-id node)
+  (allocate-var!
+   (sat-var 'transition node 0)))
+;;(define (transition-var-id node)
+;;  (v 'transition node 0))
 
 ;;start new fresh SAT encoding with no earlier variables/mappings
 ;;set counter back to 0 and clear the hashes
 (define (reset-vars!)
-  (set! next-id 0) ;; 0 or 1
+  (set! next-id 0) ;; 0 or 1????????
   (set! var->id (make-hash))
   (set! id->var (make-hash)))
 
@@ -113,4 +120,5 @@
  reset-vars!
  value-var-id
  reach-var-id
+ transition-var-id
  dump-sat-vars)

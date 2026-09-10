@@ -4,7 +4,9 @@
          "circuit.rkt"
          "universe.rkt"
          "reachability.rkt"
-         "cnf-gates.rkt")
+         "cnf-gates.rkt"
+         "fault-model.rkt"
+         "path-constraints.rkt")
 
 ;; ------------------------------------------------------------
 ;; CNF clause helpers
@@ -40,7 +42,7 @@
 ;; Reachability used Tmax and needs circuit, no frame concept needed
 ;; (generate-sat-instance circuit Tmax frames) combines both
 
-(define (generate-sat-instance circuit Tmax)
+(define (generate-sat-instance circuit Tmax fault)
 
   (build-sat-universe
    circuit
@@ -49,13 +51,20 @@
 
   (append
 
+   ;; Increment 1–2.
    (generate-reachability-clauses
     circuit
     Tmax)
 
    (generate-gate-semantics-clauses
     circuit
-    '(0 1))))
+    '(0 1))
+
+   ;; Increment 3F.
+   (generate-3f-clauses
+    circuit
+    fault)))
+
 
 
 ;;your Increment 1 reachability times and the future ATPG time frames
