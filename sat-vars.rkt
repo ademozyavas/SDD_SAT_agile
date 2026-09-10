@@ -24,6 +24,9 @@
 (define id->var (make-hash))
 (define next-id 0)
 
+(define (sat-var-count)
+  (hash-count id->var))
+
 ;;assign a unique SAT integer ID to a (kind,node,time) triple
 ;;return value ID is used in CNF clauses
 (define (allocate-var! v)
@@ -113,7 +116,7 @@
                other)])))
 
 (provide
- struct-out sat-var
+ (struct-out sat-var)
  allocate-var!
  lookup-var
  lookup-id
@@ -121,4 +124,5 @@
  value-var-id
  reach-var-id
  transition-var-id
+ sat-var-count
  dump-sat-vars)
