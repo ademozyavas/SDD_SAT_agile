@@ -115,6 +115,41 @@
                id
                other)])))
 
+;; ============================================================
+;; Write SAT variable mapping
+;; ============================================================
+;;
+;; Each line is a Racket-readable datum:
+;;
+;;   (id kind node time)
+;;
+;; Examples:
+;;
+;;   (53 transition n1 0)
+;;   (57 path (a n1) 0)
+;;   (61 path (n1 n3) 0)
+;;
+;; The file can later be read directly using `read`.
+;; ============================================================
+
+(define (write-sat-vars filename)
+  (call-with-output-file
+   filename
+   (lambda (out)
+     (for ([id (sort (hash-keys id->var) <)])
+       (define v
+         (hash-ref id->var id))
+
+       (write
+        (list
+         id
+         (sat-var-kind v)
+         (sat-var-node v)
+         (sat-var-time v))
+        out)
+
+       (newline out)))
+   #:exists 'replace))
 (provide
  (struct-out sat-var)
  allocate-var!
@@ -125,4 +160,5 @@
  reach-var-id
  transition-var-id
  sat-var-count
+ write-sat-vars
  dump-sat-vars)
